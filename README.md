@@ -5,7 +5,7 @@ Even it is not officially part of Werewolfbot, data is crawled from its official
 
 ### Command List
 - `/setgroup@boboboibot` - Register your self
-- `/setgroup listofplayers` - Register your group. easier while in game after type /players@werewolfbot, copy paste the message after /setgroup
+- `/setgroup listofplayers` - Register your group. Easier while in game after type /players@werewolfbot, copy paste the message after /setgroup
 e.g
 /players@werewolfbot
 
