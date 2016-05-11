@@ -3,7 +3,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
 class Webhook extends CI_Controller {
 
-	private $array_of_role = array('won','lost','survived','apprenticeseer','beholder','cultist','cursed','detective','guardianangel','gunner','harlot','seer','tanner','traitor','villager','wildchild','wolf','beautiful');
+	private $array_of_role = array('won','lost','survived','apprenticeseer','beholder','cultist','cursed','detective','guardianangel','gunner','harlot','seer','tanner','traitor','villager','wildchild','wolf','mason','beautiful');
 	
 	private $isRunning;
 
@@ -130,6 +130,10 @@ class Webhook extends CI_Controller {
 			$this->statme($incoming_request);
 		}else if($first_message==RANDOMKILL){
 			$this->randomkill($incoming_request);
+		}else if($first_message==LISTGROUP){
+			$this->listgroup($incoming_request);
+		}else if($first_message==LISTGAME){
+			$this->listgame($incoming_request);
 		}else{
 			//$this->telegram->sendMessage(array('chat_id'=>$incoming_request['chat_id'], 'text'=>'command not found, please type /help to list all command.'));
 		}
@@ -281,25 +285,33 @@ $this->telegram->sendMessage(array('chat_id'=>$incoming_request['chat_id'], 'tex
 			$player_name = $incoming_request['from_first_name'].' '.$incoming_request['from_last_name'];			
 			$this->mgroup_player->insert(array('group_name'=>$group_name, 'player_name'=>$player_name),$player_name);
 			$this->telegram->sendMessage(array('chat_id'=>$incoming_request['chat_id'], 'text'=>$player_name.' is added to this group'));
-			
 		}else{
 			$players = explode("\n", $content);
-			$insert = array();
-			$arrPlayers = array();
-			foreach($players as $player){
-				$pl = explode(":", $player);
-				if(count($pl)>0){
-					$player_name = $pl[0];
-					$player_name = preg_replace('/[.,^"`´]/', '', $player_name);
-					$player_name = str_replace(": ", '', $player_name);
-					$player_name = str_replace("'", '', $player_name);
-					$player_name = str_replace('"', '', $player_name);
-					array_push($insert, array('group_name'=>$group_name, 'player_name'=>$player_name));
-					array_push($arrPlayers, $player_name);
+			if(count($players)==1){
+				$players = explode("/setgroup", $content);
+				if(count($players)>0){
+					$player_name = trim($players[1]);
+					$this->mgroup_player->insert(array('group_name'=>$group_name, 'player_name'=>$player_name), $player_name);
+					$this->telegram->sendMessage(array('chat_id'=>$incoming_request['chat_id'], 'text'=>'Set 1 player into group success'));
 				}
+			}else{
+				$insert = array();
+				$arrPlayers = array();
+				foreach($players as $player){
+					$pl = explode(":", $player);
+					if(count($pl)>0){
+						$player_name = $pl[0];
+						$player_name = preg_replace('/[.,^"`´]/', '', $player_name);
+						$player_name = str_replace(": ", '', $player_name);
+						$player_name = str_replace("'", '', $player_name);
+						$player_name = str_replace('"', '', $player_name);
+						array_push($insert, array('group_name'=>$group_name, 'player_name'=>$player_name));
+						array_push($arrPlayers, $player_name);
+					}
+				}
+				$this->mgroup_player->insert_batch($insert,$arrPlayers);
+				$this->telegram->sendMessage(array('chat_id'=>$incoming_request['chat_id'], 'text'=>'Set '.count($insert).' players into group success'));
 			}
-			$this->mgroup_player->insert_batch($insert,$arrPlayers);
-			$this->telegram->sendMessage(array('chat_id'=>$incoming_request['chat_id'], 'text'=>'Set '.count($insert).' players into group success'));
 		}
 	}
 
@@ -354,21 +366,48 @@ $this->telegram->sendMessage(array('chat_id'=>$incoming_request['chat_id'], 'tex
 			if(strpos($player_name,'setgame')){
 				$this->telegram->sendMessage(array('chat_id'=>$incoming_request['chat_id'], 'text'=>'Im not in the mood to hate anybody. Decide by yourself :*'));
 			}else{
-				$this->telegram->sendMessage(array('chat_id'=>$incoming_request['chat_id'], 'text'=>'please kill '.$player_name.' whom I hate most!'));
+				$this->telegram->sendMessage(array('chat_id'=>$incoming_request['chat_id'], 'text'=>$this->randomtemplate($player_name)));
 			}
 		}else{
 			$this->telegram->sendMessage(array('chat_id'=>$incoming_request['chat_id'], 'text'=>'this command is allowed only if you are in Telegram group. So invite me to your group and ensure your group is registered by typing command /setgroup list_of_player'));
 		}
 	}
 
+	private function randomtemplate($player_name){
+		// message template
+		$template = array();
+		$template[0] = 'From the first time we met I really didnt like '.$player_name.'. Murder murder murder !!';
+		$template[1] = $player_name.' ! Apa yang kamu lakukan ke aku itu JAHAP. Bunuh diaaa untukku Rangga...';
+		$template[2] = 'please kill '.$player_name.' whom I hate most!';
+		$template[3] = 'help me to MPOSMPOSMPOS '.$player_name.'!!';
+		$rand = mt_rand(0,count($template)-1);
+		return $template[$rand];
+	}
+
+
+
+	// private function help($incoming_request){
+	// 	$content = '/setgroup - set werewolf players in your group as our reference and their statistic will be automatically updated'.PHP_EOL;
+	// 	$content .= '/setgame - /setgame list_of_player while you are in a game, set up your player as our reference to get their statistic. You should run this command every game that you are playing'.PHP_EOL;
+	// 	$content .= '/mostgroup - get most common role in your group e.g /mostgroup wolf'.PHP_EOL;
+	// 	$content .= '/leastgroup - get least common role in your group e.g /leastgroup wolf'.PHP_EOL;
+	// 	$content .= '/mostgame - get most common role in your active game e.g /mostgame wolf'.PHP_EOL;
+	// 	$content .= '/leastgame - get least common role in your active game e.g /leastgame wolf'.PHP_EOL;
+	// 	$content .= '/statme - get your werewolf stats'.PHP_EOL;
+	// 	$content .= '/randomkill - first /setgame list_of_player and then let boboboibot choose to kill one whom it hates at most'.PHP_EOL;
+	// 	$content .= '/help - list all commands'.PHP_EOL;
+	// 	$content .= '/me - salam cheers from kirundadeh :*'.PHP_EOL;
+	// 	$content .= 'notes : only players with at least 10 times playing will show up in statistic';
+	// 	$this->telegram->sendMessage(array('chat_id'=>$incoming_request['chat_id'], 'text'=>$content));
+	// }
 
 	private function help($incoming_request){
 		$content = '/setgroup - set werewolf players in your group as our reference and their statistic will be automatically updated'.PHP_EOL;
 		$content .= '/setgame - /setgame list_of_player while you are in a game, set up your player as our reference to get their statistic. You should run this command every game that you are playing'.PHP_EOL;
 		$content .= '/mostgroup - get most common role in your group e.g /mostgroup wolf'.PHP_EOL;
-		$content .= '/leastgroup - get least common role in your group e.g /leastgroup wolf'.PHP_EOL;
 		$content .= '/mostgame - get most common role in your active game e.g /mostgame wolf'.PHP_EOL;
-		$content .= '/leastgame - get least common role in your active game e.g /leastgame wolf'.PHP_EOL;
+		$content .= '/listgroup - display players within your group who can use /statme command and involve in /mostgroup command'.PHP_EOL;
+		$content .= '/listgame - display players within your active game who can involve in /mostgroup and /randomkill command'.PHP_EOL;
 		$content .= '/statme - get your werewolf stats'.PHP_EOL;
 		$content .= '/randomkill - first /setgame list_of_player and then let boboboibot choose to kill one whom it hates at most'.PHP_EOL;
 		$content .= '/help - list all commands'.PHP_EOL;
@@ -377,9 +416,46 @@ $this->telegram->sendMessage(array('chat_id'=>$incoming_request['chat_id'], 'tex
 		$this->telegram->sendMessage(array('chat_id'=>$incoming_request['chat_id'], 'text'=>$content));
 	}
 
+
 	private function me($incoming_request){
-		$content = 'salam cheers from kirundadeh :*';
+		$content = 'Im your assistant in playing werewolf @werewolfbot.. have fun :D !';
 		$this->telegram->sendMessage(array('chat_id'=>$incoming_request['chat_id'], 'text'=>$content));
 	}
+
+	private function listgroup($incoming_request){
+		$group_players = $this->mgroup_player->get_by_group($incoming_request['chat_title']);
+		$content = 'list players registered in this group:'.PHP_EOL;
+		if($group_players){
+			foreach($group_players as $idx => $group_player){
+				$no = $idx+1;
+				$content .= $no.'. '.$group_players[$idx]->player_name.PHP_EOL;
+			}
+		}else{
+			$content .= 'no player found';			
+		}
+		$content .= 'those players statistic will be automatically updated. please register other players into your group by /setgroup command or type /statme@boboboibot to display your status'.PHP_EOL;
+		$this->telegram->sendMessage(array('chat_id'=>$incoming_request['chat_id'], 'text'=>$content));
+	}
+
+	private function listgame($incoming_request){
+		$game_players = $this->mgame_player->get_by_game($incoming_request['chat_title']);
+		$content = 'list players in active game:'.PHP_EOL;
+		$no = 0;
+		if($game_players){
+			foreach($game_players as $idx => $game_player){
+				if(strpos($game_players[$idx]->player_name,'setgame')){
+				}else{
+					$no = $no+1;
+					$content .= $no.'. '.$game_players[$idx]->player_name.PHP_EOL;
+				}
+
+			}
+		}else{
+			$content .= 'no player found';			
+		}
+		$content .= 'please set up players in active game by /setgame command or type to randomly lynch at afternoon /randomkill'.PHP_EOL;
+		$this->telegram->sendMessage(array('chat_id'=>$incoming_request['chat_id'], 'text'=>$content));
+	}
+
 
 }
